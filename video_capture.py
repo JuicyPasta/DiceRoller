@@ -53,7 +53,7 @@ while(cap.isOpened()):
         ret2,th2 = cv2.threshold(gray,0,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
         canny = cv2.Canny(th2,100,200,7)
         canny = cv2.dilate(canny, np.ones((2, 2)))
-        # applyOtus(hsv[:,:,0])
+        # applyOtus(hjsv[:,:,0])
 
         medianFilt = cv2.medianBlur(rgb,3)
 
@@ -65,9 +65,38 @@ while(cap.isOpened()):
                 print(area)
                 x,y,w,h = cv2.boundingRect(contour)
                 perimeter = cv2.arcLength(contour,True)
-                cv2.rectangle(gray,(x,y),(x+w,y+h),(0,255,0),2)                
-                cv2.drawContours(gray, contour, -1, (0,255,0), 3)
 
+                dice_crop = gray[y+1:y+h, x+1:x+w]
+                ret3,th3 = cv2.threshold(dice_crop,50,255,cv2.THRESH_BINARY)
+                # dice_crop = cv2.Canny(th3,50,100,7)
+
+                params = cv2.SimpleBlobDetector_Params()
+                # Change thresholds
+                params.minThreshold = 0
+                params.maxThreshold = 256
+                # Filter by Area.
+                params.filterByArea = False
+                params.minArea = 30
+                # Filter by Circularity
+                params.filterByCircularity = False
+                params.minCircularity = 0.1
+                # Filter by Convexity
+                params.filterByConvexity = False
+                params.minConvexity = 0.5
+                # Filter by Inertia
+                params.filterByInertia =False
+                params.minInertiaRatio = 0.5
+                
+                detector = cv2.SimpleBlobDetector_create(params)
+                keypoints = detector.detect(th3)
+                im_with_keypoints = cv2.drawKeypoints(dice_crop, keypoints, np.array([]), (0,0,255), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+                
+                # Show keypoints
+                cv2.imshow("Keypoints", im_with_keypoints)
+                cv2.imshow('crop', th3)
+
+                cv2.rectangle(gray,(x,y),(x+w,y+h),(0,255,0),2)                
+                # cv2.drawContours(gray, contour, -1, (0,255,0), 3)
 
         print("===")
 
@@ -81,10 +110,9 @@ while(cap.isOpened()):
         # th2 = cv2.adaptiveThreshold(gray,255,cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY,11,2)
         # th3 = cv2.adaptiveThreshold(gray,255,cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY,11,2)
 
-
         cv2.imshow('otus', canny)
         cv2.imshow('cont', gray)
-# 
+ 
         # cv2.imshow('frame',frame)
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
