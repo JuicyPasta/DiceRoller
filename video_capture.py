@@ -4,7 +4,7 @@ import matplotlib
 matplotlib.use('TkAgg')   
 import matplotlib.pyplot as plt 
 
-cap = cv2.VideoCapture(0)
+cap = cv2.VideoCapture(1)
 
 fourcc = cv2.VideoWriter_fourcc(*'XVID')
 out = cv2.VideoWriter('output.avi',fourcc, 20.0, (1280,960))
@@ -20,13 +20,22 @@ def detect_die(img, original, name):
 
     for contour in contours:
         area = cv2.contourArea(contour, True)
-        if area > 3000: 
-            x,y,w,h = cv2.boundingRect(contour)
+        x,y,w,h = cv2.boundingRect(contour)
+
+        rectangle_ratio = (w) / (h)
+        
+        if area > 3000 and rectangle_ratio > .85 and rectangle_ratio < 1.15: 
             perimeter = cv2.arcLength(contour,True)
+            print("RATIO")
+            print(rectangle_ratio)
 
             dice_crop = gray[y+1:y+h, x+1:x+w]
-            ret3,th3 = cv2.threshold(dice_crop,50,255,cv2.THRESH_BINARY)
+            # ret3,th3 = cv2.threshold(dice_crop,50,255,cv2.THRESH_BINARY)
+            ret3,th3 = cv2.threshold(dice_crop,0,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
+            th3 = cv2.bitwise_not(th3)
             # dice_crop = cv2.Canny(th3,50,100,7)
+            cv2.imshow("crop_thresh"+name, th3)
+
 
             params = cv2.SimpleBlobDetector_Params()
             # Change thresholds
@@ -34,10 +43,10 @@ def detect_die(img, original, name):
             params.maxThreshold = 256
             # Filter by Area.
             params.filterByArea = True
-            params.minArea = 100
-            params.maxArea = 200
+            params.minArea = 0
+            params.maxArea = 1000
             # Filter by Circularity
-            params.filterByCircularity = True
+            params.filterByCircularity = False
             params.minCircularity = .8
             # Filter by Convexity
             params.filterByConvexity = False
