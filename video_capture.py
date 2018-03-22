@@ -50,16 +50,7 @@ def detect_die(img, original, name):
             params.minInertiaRatio = 0.5
             detector = cv2.SimpleBlobDetector_create(params)
 
-            keypoints_unfiltered = detector.detect(single_thresh)
-            keypoints = []
-
-            dots =0
-            for keypoint in keypoints_unfiltered:
-                print(keypoint.size)
-                # if keypoint.size > 16 and keypoint.size < 20:
-                dots+=1
-                keypoints.append(keypoint)
-
+            keypoints = detector.detect(single_thresh)
 
             single_die_keypoints = cv2.drawKeypoints(single_thresh, keypoints, np.array([]), (0,0,255), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
             
@@ -68,7 +59,8 @@ def detect_die(img, original, name):
             font = cv2.FONT_HERSHEY_SIMPLEX
             cv2.rectangle(img,(x,y),(x+w,y+h),(0,255,0),2)                
             cv2.imshow("imageaa", img)
-            # cv2.putText(original, 'die=' + str(dots) ,(x,y), font, .8,(0,0,0),2,cv2.LINE_AA)
+            cv2.putText(original, 'die=' + str(len(keypoints)) ,(x,y), font, .8,(0,0,0),2,cv2.LINE_AA)
+            print(str(len(keypoints)))
 
     print("===")
 
@@ -87,20 +79,10 @@ while(cap.isOpened()):
         frame_h, frame_s, frame_v = cv2.split(hsv)
         lab_l, lab_a, lab_b = cv2.split(lab)
 
-        # ret2,th2 = cv2.threshold(lab_b,0,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
         ret2,th2 = cv2.threshold(lab_b,100,255,cv2.THRESH_BINARY)
 
         detect_die(th2, rgb, "normal")
 
-        # segmentation
-        # lower_blue = np.array([110,50,50])
-        # upper_blue = np.array([130,255,255])
-        # mask = cv2.inRange(frame, lower_blue, upper_blue)
-        # res = cv2.bitwise_and(frame,frame, mask= mask)
-
-        # ret,th1 = cv2.threshold(gray,127,255,cv2.THRESH_BINARY)
-        # th2 = cv2.adaptiveThreshold(gray,255,cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY,11,2)
-        # th3 = cv2.adaptiveThreshold(gray,255,cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY,11,2)
         cv2.imshow('gray', rgb)
         out.write(rgb)
         print(rgb.shape)
@@ -110,7 +92,6 @@ while(cap.isOpened()):
     else:
         break
 
-# Release everything if job is finished
 cap.release()
 out.release()
 cv2.destroyAllWindows()
