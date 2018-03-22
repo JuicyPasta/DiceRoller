@@ -4,85 +4,93 @@ import matplotlib
 matplotlib.use('TkAgg')   
 import matplotlib.pyplot as plt 
 
-cap = cv2.VideoCapture(1)
+cap = cv2.VideoCapture(0)
 
 fourcc = cv2.VideoWriter_fourcc(*'XVID')
-out = cv2.VideoWriter('output.avi',fourcc, 20.0, (1280,960))
+out = cv2.VideoWriter('demo.avi',fourcc, 20.0, (1280,960))
 # out.write(frame) # write to video file
 
 def detect_die(img, original, name):
+    img = cv2.medianBlur(img,7)
+
     canny = cv2.Canny(img,100,200,7)
-    canny = cv2.dilate(canny, np.ones((2, 2)))
+    canny_thick = cv2.dilate(canny, np.ones((2, 2)))
 
-    medianFilt = cv2.medianBlur(rgb,3)
+    cv2.imshow("canny_thick", canny_thick)
 
-    im2, contours, hierarchy = cv2.findContours(canny,cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
+    ret, contours, hierarchy = cv2.findContours(canny_thick,cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
 
     for contour in contours:
         area = cv2.contourArea(contour, True)
         x,y,w,h = cv2.boundingRect(contour)
+        perimeter = cv2.arcLength(contour,True)
 
-        rectangle_ratio = (w) / (h)
+        box_ratio = w / h
         
-        if area > 3000 and rectangle_ratio > .85 and rectangle_ratio < 1.15: 
-            perimeter = cv2.arcLength(contour,True)
-            print("RATIO")
-            print(rectangle_ratio)
+        if area > 2000 and area < 20000 and box_ratio > .85 and box_ratio < 1.15: 
+            single_die = gray[y+1:y+h, x+1:x+w]
 
-            dice_crop = gray[y+1:y+h, x+1:x+w]
-            # ret3,th3 = cv2.threshold(dice_crop,50,255,cv2.THRESH_BINARY)
-            ret3,th3 = cv2.threshold(dice_crop,0,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
-            th3 = cv2.bitwise_not(th3)
-            # dice_crop = cv2.Canny(th3,50,100,7)
-            cv2.imshow("crop_thresh"+name, th3)
+            otus_ret, single_thresh = cv2.threshold(single_die,0,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
+            single_thresh = cv2.bitwise_not(single_thresh)
 
+            cv2.imshow("single_die_thresh", single_thresh)
+            cv2.imshow("single_die", single_die)
 
             params = cv2.SimpleBlobDetector_Params()
-            # Change thresholds
             params.minThreshold = 0
             params.maxThreshold = 256
-            # Filter by Area.
             params.filterByArea = True
-            params.minArea = 0
-            params.maxArea = 1000
-            # Filter by Circularity
+            params.minArea = 200
+            params.maxArea = 2000
             params.filterByCircularity = False
             params.minCircularity = .8
-            # Filter by Convexity
             params.filterByConvexity = False
             params.minConvexity = 0.5
-            # Filter by Inertia
             params.filterByInertia =False
             params.minInertiaRatio = 0.5
-            
             detector = cv2.SimpleBlobDetector_create(params)
-            keypoints = detector.detect(th3)
 
-            for keypoint in keypoints:
+            keypoints_unfiltered = detector.detect(single_thresh)
+            keypoints = []
+
+            dots =0
+            for keypoint in keypoints_unfiltered:
                 print(keypoint.size)
+                # if keypoint.size > 16 and keypoint.size < 20:
+                dots+=1
+                keypoints.append(keypoint)
 
-            im_with_keypoints = cv2.drawKeypoints(dice_crop, keypoints, np.array([]), (0,0,255), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+
+            single_die_keypoints = cv2.drawKeypoints(single_thresh, keypoints, np.array([]), (0,0,255), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
             
-            # Show keypoints
-            cv2.imshow("crop_"+name, im_with_keypoints)
-
-            cv2.rectangle(original,(x,y),(x+w,y+h),(0,255,0),2)                
+            cv2.imshow("keypoints", single_die_keypoints)
 
             font = cv2.FONT_HERSHEY_SIMPLEX
-            cv2.putText(original, 'die=' + str(len(keypoints)) ,(x,y), font, .8,(255,255,255),2,cv2.LINE_AA)
+            cv2.rectangle(img,(x,y),(x+w,y+h),(0,255,0),2)                
+            cv2.imshow("imageaa", img)
+            # cv2.putText(original, 'die=' + str(dots) ,(x,y), font, .8,(0,0,0),2,cv2.LINE_AA)
 
     print("===")
 
 while(cap.isOpened()):
-    ret, frame = cap.read()
+    # ret, frame = cap.read()
+    frame = cv2.imread("dice/im1.jpg")
+    ret = True
+
     if ret==True:
         rgb = frame
         hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        lab = cv2.cvtColor(frame, cv2.COLOR_BGR2LAB)
 
-        ret2,th2 = cv2.threshold(gray,0,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
+        frame_b, frame_g, frame_r = cv2.split(rgb)
+        frame_h, frame_s, frame_v = cv2.split(hsv)
+        lab_l, lab_a, lab_b = cv2.split(lab)
 
-        detect_die(th2, gray, "normal")
+        # ret2,th2 = cv2.threshold(lab_b,0,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
+        ret2,th2 = cv2.threshold(lab_b,100,255,cv2.THRESH_BINARY)
+
+        detect_die(th2, rgb, "normal")
 
         # segmentation
         # lower_blue = np.array([110,50,50])
@@ -93,7 +101,9 @@ while(cap.isOpened()):
         # ret,th1 = cv2.threshold(gray,127,255,cv2.THRESH_BINARY)
         # th2 = cv2.adaptiveThreshold(gray,255,cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY,11,2)
         # th3 = cv2.adaptiveThreshold(gray,255,cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY,11,2)
-        cv2.imshow('gray', gray)
+        cv2.imshow('gray', rgb)
+        out.write(rgb)
+        print(rgb.shape)
 
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
